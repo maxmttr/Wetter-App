@@ -4,112 +4,169 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wetter & Tagesplan App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Wetter & Tagesplan</h1>
-            <p class="subtitle">Dein persönlicher Wetter-Assistent</p>
-        </header>
+    <div class="page-shell">
+        <div class="ambient ambient-1"></div>
+        <div class="ambient ambient-2"></div>
 
-        <!-- Suchbereich -->
-        <section class="search-section">
-            <div class="search-box">
-                <input type="text" id="cityInput" placeholder="Stadt eingeben..." autocomplete="off">
-                <button id="searchBtn" class="btn btn-primary">Suchen</button>
-                <button id="locationBtn" class="btn btn-secondary" title="Meinen Standort verwenden">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="unit-toggle">
-                <button id="celsiusBtn" class="unit-btn active">°C</button>
-                <button id="fahrenheitBtn" class="unit-btn">°F</button>
-            </div>
-        </section>
-
-        <!-- Ladezustand -->
-        <div id="loading" class="loading hidden">
-            <div class="spinner"></div>
-            <p>Wetterdaten werden geladen...</p>
-        </div>
-
-        <!-- Fehleranzeige -->
-        <div id="errorMessage" class="error-message hidden">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-            </svg>
-            <span id="errorText">Fehler aufgetreten</span>
-        </div>
-
-        <!-- Hauptwetteranzeige -->
-        <section id="weatherSection" class="weather-section hidden">
-            <div class="current-weather">
-                <div class="weather-main">
-                    <img id="weatherIcon" src="" alt="Wetter-Icon" class="weather-icon">
-                    <div class="weather-info">
-                        <h2 id="cityName">--</h2>
-                        <p id="weatherDate" class="date"></p>
-                        <p id="temperature" class="temperature">--°</p>
-                        <p id="weatherDescription" class="description">--</p>
-                    </div>
+        <main class="container">
+            <header class="hero-header">
+                <div class="brand-block">
+                    <span class="eyebrow">Live Weather Dashboard</span>
+                    <h1>Wetter & Tagesplan</h1>
+                    <p class="subtitle">Dein persönlicher Wetter-Assistent mit Vorhersage, Standortsuche und smarten Empfehlungen.</p>
                 </div>
 
-                <div class="weather-details">
-                    <div class="detail-item">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2c-5.33 4-8 7.5-8 11a8 8 0 0016 0c0-3.5-2.67-7-8-11zm0 18c-3.87 0-7-3.13-7-7 0-3.01 2.35-6.01 7-10.01 4.65 4 7 7 7 10.01 0 3.87-3.13 7-7 7z"/>
+                <div class="hero-badge glass-panel">
+                    <span class="badge-dot"></span>
+                    <span>Echtzeitdaten mit Open-Meteo</span>
+                </div>
+            </header>
+
+            <section class="control-bar glass-panel" aria-label="Wettersuche">
+                <div class="search-box">
+                    <label for="cityInput" class="sr-only">Stadt eingeben</label>
+                    <input type="text" id="cityInput" placeholder="Stadt eingeben..." autocomplete="off">
+                    <button id="searchBtn" class="btn btn-primary">Wetter abrufen</button>
+                    <button id="locationBtn" class="btn btn-ghost icon-btn" title="Meinen Standort verwenden" aria-label="Meinen Standort verwenden">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path>
                         </svg>
-                        <div>
-                            <span class="label">Luftfeuchtigkeit</span>
-                            <span id="humidity" class="value">--%</span>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M14.5 17c0 1.65-1.35 3-3 3s-3-1.35-3-3c0-1.65 1.35-3 3-3s3 1.35 3 3zm-3-15c-4.42 0-8 3.58-8 8 0 1.85.63 3.55 1.69 4.9l1.43-1.43C6.04 12.5 5.5 11.31 5.5 10c0-3.31 2.69-6 6-6s6 2.69 6 6c0 1.31-.54 2.5-1.38 3.38l1.43 1.43c.98-1.2 1.95-2.82 1.95-4.81 0-4.42-3.58-8-8-8z"/>
-                        </svg>
-                        <div>
-                            <span class="label">Wind</span>
-                            <span id="wind" class="value">-- km/h</span>
-                        </div>
-                    </div>
-                    <div class="detail-item">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
-                        </svg>
-                        <div>
-                            <span class="label">Gefühlt</span>
-                            <span id="feelsLike" class="value">--°</span>
-                        </div>
-                    </div>
+                    </button>
                 </div>
+
+                <div class="unit-toggle" aria-label="Temperatureinheit">
+                    <button id="celsiusBtn" class="unit-btn active">°C</button>
+                    <button id="fahrenheitBtn" class="unit-btn">°F</button>
+                </div>
+            </section>
+
+            <div id="loading" class="loading glass-panel hidden">
+                <div class="spinner"></div>
+                <p>Wetterdaten werden geladen...</p>
             </div>
 
-            <!-- Tagesempfehlungen -->
-            <div class="recommendations">
-                <h3>Tagesempfehlungen</h3>
-                <div id="recommendationsList" class="recommendations-list">
-                    <!-- Empfehlungen werden dynamisch eingefügt -->
-                </div>
+            <div id="errorMessage" class="error-message hidden" role="alert">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span id="errorText">Fehler aufgetreten</span>
             </div>
 
-            <!-- 5-Tage-Vorhersage -->
-            <div class="forecast">
-                <h3>5-Tage-Vorhersage</h3>
-                <div id="forecastList" class="forecast-list">
-                    <!-- Vorhersage-Karten werden dynamisch eingefügt -->
+            <section id="weatherSection" class="weather-section hidden">
+                <div class="weather-overview">
+                    <article class="current-weather glass-panel">
+                        <div class="weather-copy">
+                            <span class="panel-label">Aktuelles Wetter</span>
+
+                            <div class="weather-main">
+                                <div class="weather-visual">
+                                    <div class="icon-wrap">
+                                        <img id="weatherIcon" src="" alt="Wetter-Icon" class="weather-icon">
+                                    </div>
+                                </div>
+
+                                <div class="weather-info">
+                                    <h2 id="cityName">--</h2>
+                                    <p id="weatherDate" class="date"></p>
+                                    <p id="temperature" class="temperature">--°</p>
+                                    <p id="weatherDescription" class="description">--</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="weather-details">
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2c-5.33 4-8 7.5-8 11a8 8 0 0016 0c0-3.5-2.67-7-8-11zm0 18c-3.87 0-7-3.13-7-7 0-3.01 2.35-6.01 7-10.01 4.65 4 7 7 7 10.01 0 3.87-3.13 7-7 7z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <span class="label">Luftfeuchtigkeit</span>
+                                    <span id="humidity" class="value">--%</span>
+                                </div>
+                            </div>
+
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M14.5 17c0 1.65-1.35 3-3 3s-3-1.35-3-3c0-1.65 1.35-3 3-3s3 1.35 3 3zm-3-15c-4.42 0-8 3.58-8 8 0 1.85.63 3.55 1.69 4.9l1.43-1.43C6.04 12.5 5.5 11.31 5.5 10c0-3.31 2.69-6 6-6s6 2.69 6 6c0 1.31-.54 2.5-1.38 3.38l1.43 1.43c.98-1.2 1.95-2.82 1.95-4.81 0-4.42-3.58-8-8-8z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <span class="label">Wind</span>
+                                    <span id="wind" class="value">-- km/h</span>
+                                </div>
+                            </div>
+
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <span class="label">Gefühlt</span>
+                                    <span id="feelsLike" class="value">--°</span>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <aside class="weather-side">
+                        <div class="mini-card glass-panel">
+                            <span class="panel-label">Heute im Blick</span>
+                            <h3>Plan deinen Tag smarter</h3>
+                            <p>Nutze Temperatur, Wind und Wetterlage für Kleidung, Wege und Freizeit.</p>
+                        </div>
+
+                        <div class="mini-card glass-panel">
+                            <span class="panel-label">Tipp</span>
+                            <h3>Schneller Zugriff</h3>
+                            <p>Suche nach einer Stadt oder verwende deinen Standort für lokale Daten in Sekunden.</p>
+                        </div>
+                    </aside>
                 </div>
-            </div>
-        </section>
+
+                <div class="content-grid">
+                    <article class="recommendations glass-panel">
+                        <div class="section-heading">
+                            <div>
+                                <span class="panel-label">Empfehlungen</span>
+                                <h3>Tagesempfehlungen</h3>
+                            </div>
+                        </div>
+                        <div id="recommendationsList" class="recommendations-list">
+                            <!-- Empfehlungen werden dynamisch eingefügt -->
+                        </div>
+                    </article>
+
+                    <article class="forecast glass-panel">
+                        <div class="section-heading">
+                            <div>
+                                <span class="panel-label">Forecast</span>
+                                <h3>5-Tage-Vorhersage</h3>
+                            </div>
+                        </div>
+                        <div id="forecastList" class="forecast-list">
+                            <!-- Vorhersage-Karten werden dynamisch eingefügt -->
+                        </div>
+                    </article>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <p>Wetterdaten von <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo API</a></p>
+        </footer>
     </div>
-
-    <footer>
-        <p>Wetterdaten von <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo API</a></p>
-    </footer>
 
     <script src="js/app.js"></script>
 </body>
