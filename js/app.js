@@ -1,6 +1,7 @@
 /**
  * Wetter & Tagesplan App
  * Verwendet die Open-Meteo API für Wetterdaten (kostenlos, kein API-Key nötig)
+ * V1.1: Sonnenaufgang/Sonnenuntergang, Min/Max-Temperatur in Vorhersage, Windrichtung
  */
 
 // === API-Konfiguration ===
@@ -25,7 +26,10 @@ const elements = {
     weatherDescription: document.getElementById('weatherDescription'),
     humidity: document.getElementById('humidity'),
     wind: document.getElementById('wind'),
+    windDirection: document.getElementById('windDirection'),
     feelsLike: document.getElementById('feelsLike'),
+    sunrise: document.getElementById('sunrise'),
+    sunset: document.getElementById('sunset'),
     recommendationsList: document.getElementById('recommendationsList'),
     forecastList: document.getElementById('forecastList')
 };
@@ -36,7 +40,6 @@ let currentWeatherData = null;
 let currentLocationName = '';
 
 // === Inline SVG Weather Icons ===
-// Ersetzt externe CDN-Icons durch zuverlässige inline SVGs
 const WEATHER_ICONS = {
     sunny: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
         <circle cx="32" cy="32" r="12" fill="#FFD600"/>
@@ -102,15 +105,11 @@ const WEATHER_ICONS = {
     </svg>`
 };
 
-/**
- * Gibt den SVG-String für einen Wettertyp zurück
- */
 function getWeatherIconSVG(type) {
     return WEATHER_ICONS[type] || WEATHER_ICONS['default'];
 }
 
 // === WMO Wettercodes ===
-// https://open-meteo.com/en/docs
 const WMO_CODES = {
     0:  { type: 'sunny',  desc: 'Klar' },
     1:  { type: 'sunny',  desc: 'Überwiegend klar' },
@@ -142,6 +141,21 @@ const WMO_CODES = {
     99: { type: 'stormy', desc: 'Gewitter mit Hagel' }
 };
 
+// === Windrichtung aus Grad berechnen ===
+function degreesToCompass(degrees) {
+    if (degrees === null || degrees === undefined) return '–';
+    const dirs = ['N', 'NNO', 'NO', 'ONO', 'O', 'OSO', 'SO', 'SSO', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const index = Math.round(degrees / 22.5) % 16;
+    return dirs[index];
+}
+
+// === Uhrzeit aus ISO-String formatieren (HH:MM) ===
+function formatTime(isoString) {
+    if (!isoString) return '–';
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
 // === Initialisierung ===
 document.addEventListener('DOMContentLoaded', () => {
     elements.searchBtn.addEventListener('click', handleSearch);
@@ -157,21 +171,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function handleSearch() {
     const city = elements.cityInput.value.trim();
-
     if (!city) {
         showError('Bitte gib eine Stadt ein.');
         return;
     }
-
     try {
         showLoading(true);
         hideError();
-
         const geoData = await geocodeCity(city);
-        if (!geoData) {
-            throw new Error('Stadt nicht gefunden. Bitte überprüfe die Schreibweise.');
-        }
-
+        if (!geoData) throw new Error('Stadt nicht gefunden. Bitte überprüfe die Schreibweise.');
         currentLocationName = `${geoData.name}, ${geoData.country || ''}`;
         await fetchWeatherData(geoData.latitude, geoData.longitude);
     } catch (error) {
@@ -185,10 +193,8 @@ function handleLocationRequest() {
         showError('Geolocation wird von diesem Browser nicht unterstützt.');
         return;
     }
-
     showLoading(true);
     hideError();
-
     navigator.geolocation.getCurrentPosition(
         async (position) => {
             const { latitude, longitude } = position.coords;
@@ -204,17 +210,10 @@ function handleLocationRequest() {
         (error) => {
             showLoading(false);
             switch (error.code) {
-                case error.PERMISSION_DENIED:
-                    showError('Standort-Zugriff wurde verweigert.');
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    showError('Standort-Informationen nicht verfügbar.');
-                    break;
-                case error.TIMEOUT:
-                    showError('Zeitüberschreitung bei der Standort-Abfrage.');
-                    break;
-                default:
-                    showError('Unbekannter Fehler bei der Standort-Abfrage.');
+                case error.PERMISSION_DENIED:      showError('Standort-Zugriff wurde verweigert.'); break;
+                case error.POSITION_UNAVAILABLE:   showError('Standort-Informationen nicht verfügbar.'); break;
+                case error.TIMEOUT:                showError('Zeitüberschreitung bei der Standort-Abfrage.'); break;
+                default:                           showError('Unbekannter Fehler bei der Standort-Abfrage.');
             }
         }
     );
@@ -243,8 +242,7 @@ async function geocodeCity(cityName) {
 
 async function reverseGeocode(lat, lon) {
     try {
-        const url = `${GEOCODING_URL}?latitude=${lat}&longitude=${lon}&count=1&language=de&format=json`;
-        await fetch(url);
+        await fetch(`${GEOCODING_URL}?latitude=${lat}&longitude=${lon}&count=1&language=de&format=json`);
         return `Standort (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`;
     } catch {
         return `Standort (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`;
@@ -253,14 +251,14 @@ async function reverseGeocode(lat, lon) {
 
 async function fetchWeatherData(lat, lon) {
     try {
-        const url = `${WEATHER_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=6`;
+        // V1.1: wind_direction_10m zu current hinzugefügt; sunrise & sunset zu daily hinzugefügt
+        const url = `${WEATHER_URL}?latitude=${lat}&longitude=${lon}` +
+            `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m` +
+            `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
+            `&timezone=auto&forecast_days=6`;
         const response = await fetch(url);
         const data = await response.json();
-
-        if (!data.current) {
-            throw new Error('Keine Wetterdaten verfügbar.');
-        }
-
+        if (!data.current) throw new Error('Keine Wetterdaten verfügbar.');
         currentWeatherData = data;
         displayCurrentWeather(data);
         displayForecast(data);
@@ -278,24 +276,37 @@ async function fetchWeatherData(lat, lon) {
 
 function displayCurrentWeather(data) {
     const current = data.current;
+    const daily   = data.daily;
     const unitSymbol = currentUnit === 'celsius' ? '°C' : '°F';
 
-    elements.cityName.textContent = currentLocationName || 'Unbekannter Ort';
+    elements.cityName.textContent    = currentLocationName || 'Unbekannter Ort';
     elements.weatherDate.textContent = formatDate(new Date());
 
     const weatherInfo = WMO_CODES[current.weather_code] || { type: 'default', desc: 'Unbekannt' };
-
-    // Inline SVG Icon setzen (kein externer CDN mehr nötig)
     const iconSVG = getWeatherIconSVG(weatherInfo.type);
     elements.weatherIcon.outerHTML = `<div id="weatherIcon" class="weather-icon" aria-label="${weatherInfo.desc}" role="img">${iconSVG}</div>`;
-    // Element-Referenz neu holen nach outerHTML-Ersatz
     elements.weatherIcon = document.getElementById('weatherIcon');
 
-    elements.temperature.textContent = `${Math.round(current.temperature_2m)}${unitSymbol}`;
+    elements.temperature.textContent       = `${Math.round(current.temperature_2m)}${unitSymbol}`;
     elements.weatherDescription.textContent = weatherInfo.desc;
-    elements.humidity.textContent = `${current.relative_humidity_2m}%`;
-    elements.wind.textContent = `${Math.round(current.wind_speed_10m)} km/h`;
+    elements.humidity.textContent          = `${current.relative_humidity_2m}%`;
+
+    // Wind: Geschwindigkeit + Richtung (V1.1)
+    const windDir = degreesToCompass(current.wind_direction_10m);
+    elements.wind.textContent          = `${Math.round(current.wind_speed_10m)} km/h`;
+    if (elements.windDirection) {
+        elements.windDirection.textContent = windDir;
+    }
+
     elements.feelsLike.textContent = `${Math.round(current.apparent_temperature)}${unitSymbol}`;
+
+    // Sonnenaufgang & Sonnenuntergang für heute (Index 0) (V1.1)
+    if (elements.sunrise && daily && daily.sunrise) {
+        elements.sunrise.textContent = formatTime(daily.sunrise[0]);
+    }
+    if (elements.sunset && daily && daily.sunset) {
+        elements.sunset.textContent = formatTime(daily.sunset[0]);
+    }
 }
 
 function displayForecast(data) {
@@ -306,18 +317,23 @@ function displayForecast(data) {
     const unitSymbol = currentUnit === 'celsius' ? '°C' : '°F';
 
     for (let i = 1; i < Math.min(6, daily.time.length); i++) {
-        const dateStr = daily.time[i];
-        const maxTemp = daily.temperature_2m_max[i];
+        const dateStr    = daily.time[i];
+        const maxTemp    = daily.temperature_2m_max[i];
+        const minTemp    = daily.temperature_2m_min[i];   // V1.1: Min-Temperatur
         const weatherCode = daily.weather_code[i];
         const weatherInfo = WMO_CODES[weatherCode] || { type: 'default', desc: 'Unbekannt' };
-        const iconSVG = getWeatherIconSVG(weatherInfo.type);
+        const iconSVG    = getWeatherIconSVG(weatherInfo.type);
 
         const card = document.createElement('div');
         card.className = 'forecast-card';
+        // V1.1: Min/Max statt nur Max anzeigen
         card.innerHTML = `
             <div class="day">${formatDay(dateStr)}</div>
             <div class="forecast-icon" aria-label="${weatherInfo.desc}" role="img">${iconSVG}</div>
-            <div class="forecast-temp">${Math.round(maxTemp)}${unitSymbol}</div>
+            <div class="forecast-temp">
+                <span class="temp-max">${Math.round(maxTemp)}${unitSymbol}</span>
+                <span class="temp-min">${Math.round(minTemp)}${unitSymbol}</span>
+            </div>
             <div class="forecast-desc">${weatherInfo.desc}</div>
         `;
         elements.forecastList.appendChild(card);
@@ -327,10 +343,10 @@ function displayForecast(data) {
 function generateRecommendations(data) {
     const current = data.current;
     const recommendations = [];
-    const temp = current.temperature_2m;
+    const temp        = current.temperature_2m;
     const weatherCode = current.weather_code;
-    const windSpeed = current.wind_speed_10m;
-    const humidity = current.relative_humidity_2m;
+    const windSpeed   = current.wind_speed_10m;
+    const humidity    = current.relative_humidity_2m;
 
     const weatherInfo = WMO_CODES[weatherCode] || { type: 'default', desc: '' };
     const weatherType = weatherInfo.type;
@@ -338,24 +354,24 @@ function generateRecommendations(data) {
     if (temp < 5) {
         recommendations.push({ type: 'negative', icon: '🧥', text: 'Achte auf warme Kleidung – es ist sehr kalt!' });
     } else if (temp >= 5 && temp < 15) {
-        recommendations.push({ type: 'warning', icon: '🧣', text: 'Nimm eine zusätzliche Schicht mit – es ist kühl.' });
+        recommendations.push({ type: 'warning',  icon: '🧣', text: 'Nimm eine zusätzliche Schicht mit – es ist kühl.' });
     } else if (temp >= 20 && temp < 30) {
         recommendations.push({ type: 'positive', icon: '☀️', text: 'Angenehme Temperaturen – ideal für Aktivitäten draußen!' });
     } else if (temp >= 30) {
-        recommendations.push({ type: 'warning', icon: '🥤', text: 'Sehr heiß! Trink genug Wasser und such den Schatten auf.' });
+        recommendations.push({ type: 'warning',  icon: '🥤', text: 'Sehr heiß! Trink genug Wasser und such den Schatten auf.' });
     }
 
     if (weatherType === 'rainy') {
-        recommendations.push({ type: 'negative', icon: '☔', text: 'Nimm einen Regenschirm oder eine Regenjacke mit!' });
-        recommendations.push({ type: 'neutral', icon: '📚', text: 'Guter Tag zum Lernen drinnen oder für Indoor-Aktivitäten.' });
+        recommendations.push({ type: 'negative', icon: '☔',  text: 'Nimm einen Regenschirm oder eine Regenjacke mit!' });
+        recommendations.push({ type: 'neutral',  icon: '📚', text: 'Guter Tag zum Lernen drinnen oder für Indoor-Aktivitäten.' });
     } else if (weatherType === 'snowy') {
-        recommendations.push({ type: 'warning', icon: '⛷️', text: 'Schnee! Gute Zeit für Winteraktivitäten oder gemütliche Stunden drinnen.' });
+        recommendations.push({ type: 'warning',  icon: '⛷️', text: 'Schnee! Gute Zeit für Winteraktivitäten oder gemütliche Stunden drinnen.' });
     } else if (weatherType === 'stormy') {
         recommendations.push({ type: 'negative', icon: '⛈️', text: 'Gewitter! Bleib drinnen und vermeide offene Flächen.' });
     } else if (weatherType === 'sunny') {
         recommendations.push({ type: 'positive', icon: '🚴', text: 'Perfektes Wetter zum Fahrradfahren oder Spazieren!' });
         if (temp > 20) recommendations.push({ type: 'positive', icon: '🌳', text: 'Ideal für einen Parkbesuch oder Picknick.' });
-        if (temp > 15) recommendations.push({ type: 'warning', icon: '🧴', text: 'Denk an Sonnencreme bei längerem Aufenthalt draußen.' });
+        if (temp > 15) recommendations.push({ type: 'warning',  icon: '🧴', text: 'Denk an Sonnencreme bei längerem Aufenthalt draußen.' });
     } else if (weatherType === 'cloudy') {
         if (temp >= 15 && temp <= 25) {
             recommendations.push({ type: 'positive', icon: '🚶', text: 'Bewölkt, aber angenehm – gut für einen Spaziergang.' });
@@ -406,7 +422,6 @@ function updateBackgroundTheme(weatherCode) {
 }
 
 // === CSS für SVG-Icons nachrüsten ===
-// Stellt sicher, dass die Icon-Divs korrekt skaliert werden
 (function injectIconStyles() {
     const style = document.createElement('style');
     style.textContent = `
@@ -429,6 +444,21 @@ function updateBackgroundTheme(weatherCode) {
             justify-content: center;
             margin: 0 auto;
         }
+        /* V1.1: Min/Max Temperaturen in Vorhersage */
+        .forecast-temp {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            align-items: baseline;
+        }
+        .temp-max {
+            font-weight: 700;
+            font-size: 1em;
+        }
+        .temp-min {
+            font-size: 0.82em;
+            opacity: 0.6;
+        }
     `;
     document.head.appendChild(style);
 })();
@@ -444,16 +474,12 @@ function formatDay(dateStr) {
     const date = new Date(dateStr);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-
     const checkDate = new Date(date);
     checkDate.setHours(0, 0, 0, 0);
-
-    if (checkDate.getTime() === today.getTime()) return 'Heute';
-    if (checkDate.getTime() === tomorrow.getTime()) return 'Morgen';
-
+    if (checkDate.getTime() === today.getTime())     return 'Heute';
+    if (checkDate.getTime() === tomorrow.getTime())  return 'Morgen';
     const options = { weekday: 'short', day: 'numeric', month: 'short' };
     return date.toLocaleDateString('de-DE', options);
 }
