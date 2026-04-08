@@ -8,8 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <!-- Vercel Speed Insights -->
-    <script type="module" src="js/speed-insights.js"></script>
+  
 </head>
 <body>
     <div class="page-shell">
@@ -96,6 +95,7 @@
                                 </div>
                             </div>
 
+                            <!-- Wind: Geschwindigkeit + Richtung (V1.1) -->
                             <div class="detail-item">
                                 <div class="detail-icon">
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -104,7 +104,10 @@
                                 </div>
                                 <div>
                                     <span class="label">Wind</span>
-                                    <span id="wind" class="value">-- km/h</span>
+                                    <span class="value">
+                                        <span id="wind">-- km/h</span>
+                                        <span id="windDirection" class="wind-dir-badge">–</span>
+                                    </span>
                                 </div>
                             </div>
 
@@ -117,6 +120,38 @@
                                 <div>
                                     <span class="label">Gefühlt</span>
                                     <span id="feelsLike" class="value">--°</span>
+                                </div>
+                            </div>
+
+                            <!-- Sonnenaufgang (V1.1) -->
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="4"/>
+                                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+                                        <path d="M5 17h14" stroke-dasharray="2 2"/>
+                                        <polyline points="8 13 12 9 16 13"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <span class="label">Sonnenaufgang</span>
+                                    <span id="sunrise" class="value">--:--</span>
+                                </div>
+                            </div>
+
+                            <!-- Sonnenuntergang (V1.1) -->
+                            <div class="detail-item">
+                                <div class="detail-icon">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="4"/>
+                                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+                                        <path d="M5 17h14" stroke-dasharray="2 2"/>
+                                        <polyline points="8 11 12 15 16 11"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <span class="label">Sonnenuntergang</span>
+                                    <span id="sunset" class="value">--:--</span>
                                 </div>
                             </div>
                         </div>
