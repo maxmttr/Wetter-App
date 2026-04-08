@@ -2,6 +2,7 @@
  * Wetter & Tagesplan App
  * Verwendet die Open-Meteo API für Wetterdaten (kostenlos, kein API-Key nötig)
  * V1.1: Sonnenaufgang/Sonnenuntergang, Min/Max-Temperatur in Vorhersage, Windrichtung
+ * V1.2: Stundenvorhersage, Temperatur-Chart (Chart.js), Städtevergleich, Niederschlagswahrscheinlichkeit
  */
 
 // === API-Konfiguration ===
@@ -13,6 +14,14 @@ const elements = {
     cityInput: document.getElementById('cityInput'),
     searchBtn: document.getElementById('searchBtn'),
     locationBtn: document.getElementById('locationBtn'),
+    compareBtn: document.getElementById('compareBtn'),
+    comparePanel: document.getElementById('comparePanel'),
+    closeCmpBtn: document.getElementById('closeCmpBtn'),
+    city1Input: document.getElementById('city1Input'),
+    city2Input: document.getElementById('city2Input'),
+    runCompareBtn: document.getElementById('runCompareBtn'),
+    compareLoading: document.getElementById('compareLoading'),
+    compareResult: document.getElementById('compareResult'),
     celsiusBtn: document.getElementById('celsiusBtn'),
     fahrenheitBtn: document.getElementById('fahrenheitBtn'),
     loading: document.getElementById('loading'),
@@ -31,13 +40,15 @@ const elements = {
     sunrise: document.getElementById('sunrise'),
     sunset: document.getElementById('sunset'),
     recommendationsList: document.getElementById('recommendationsList'),
-    forecastList: document.getElementById('forecastList')
+    forecastList: document.getElementById('forecastList'),
+    hourlyList: document.getElementById('hourlyList')
 };
 
 // === Zustandsvariablen ===
-let currentUnit = 'celsius'; // 'celsius' oder 'fahrenheit'
+let currentUnit = 'celsius';
 let currentWeatherData = null;
 let currentLocationName = '';
+let tempChartInstance = null;
 
 // === Inline SVG Weather Icons ===
 const WEATHER_ICONS = {
@@ -165,6 +176,17 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.locationBtn.addEventListener('click', handleLocationRequest);
     elements.celsiusBtn.addEventListener('click', () => switchUnit('celsius'));
     elements.fahrenheitBtn.addEventListener('click', () => switchUnit('fahrenheit'));
+
+    // V1.2: Städtevergleich
+    elements.compareBtn.addEventListener('click', () => {
+        elements.comparePanel.classList.toggle('hidden');
+    });
+    elements.closeCmpBtn.addEventListener('click', () => {
+        elements.comparePanel.classList.add('hidden');
+    });
+    elements.runCompareBtn.addEventListener('click', handleCompare);
+    elements.city1Input.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleCompare(); });
+    elements.city2Input.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleCompare(); });
 });
 
 // === Event Handler ===
@@ -227,7 +249,90 @@ async function switchUnit(unit) {
     if (currentWeatherData) {
         displayCurrentWeather(currentWeatherData);
         displayForecast(currentWeatherData);
+        displayHourlyForecast(currentWeatherData);
+        displayTemperatureChart(currentWeatherData);
     }
+}
+
+// V1.2: Städtevergleich Handler
+async function handleCompare() {
+    const city1 = elements.city1Input.value.trim();
+    const city2 = elements.city2Input.value.trim();
+    if (!city1 || !city2) {
+        alert('Bitte beide Städte eingeben.');
+        return;
+    }
+    elements.compareLoading.classList.remove('hidden');
+    elements.compareResult.classList.add('hidden');
+    try {
+        const [geo1, geo2] = await Promise.all([geocodeCity(city1), geocodeCity(city2)]);
+        if (!geo1) throw new Error(`Stadt "${city1}" nicht gefunden.`);
+        if (!geo2) throw new Error(`Stadt "${city2}" nicht gefunden.`);
+
+        const [data1, data2] = await Promise.all([
+            fetchWeatherDataRaw(geo1.latitude, geo1.longitude),
+            fetchWeatherDataRaw(geo2.latitude, geo2.longitude)
+        ]);
+
+        renderCompare(
+            { name: `${geo1.name}, ${geo1.country || ''}`, data: data1 },
+            { name: `${geo2.name}, ${geo2.country || ''}`, data: data2 }
+        );
+    } catch (e) {
+        alert(e.message);
+    } finally {
+        elements.compareLoading.classList.add('hidden');
+    }
+}
+
+function renderCompare(city1, city2) {
+    const unitSymbol = currentUnit === 'celsius' ? '°C' : '°F';
+    function cmpVal(data, key) {
+        const val = data.current[key];
+        return (currentUnit === 'fahrenheit' && (key === 'temperature_2m' || key === 'apparent_temperature'))
+            ? Math.round(val * 9/5 + 32)
+            : Math.round(val);
+    }
+    function precipBar(prob) {
+        const p = Math.min(100, Math.max(0, prob || 0));
+        const col = p > 70 ? '#2563eb' : p > 40 ? '#60a5fa' : '#bfdbfe';
+        return `<div class="precip-bar-wrap" title="${p}% Regenwahrscheinlichkeit">
+            <div class="precip-bar-bg"><div class="precip-bar-fill" style="width:${p}%;background:${col}"></div></div>
+            <span>${p}%</span>
+        </div>`;
+    }
+    function wmoInfo(code) {
+        return (WMO_CODES[code] || { type:'default', desc:'Unbekannt' });
+    }
+    const pp1 = city1.data.daily && city1.data.daily.precipitation_probability_max ? city1.data.daily.precipitation_probability_max[0] : null;
+    const pp2 = city2.data.daily && city2.data.daily.precipitation_probability_max ? city2.data.daily.precipitation_probability_max[0] : null;
+
+    const html = `
+    <div class="compare-grid">
+        <div class="compare-city-card">
+            <div class="compare-city-name">${city1.name}</div>
+            <div class="compare-icon">${getWeatherIconSVG(wmoInfo(city1.data.current.weather_code).type)}</div>
+            <div class="compare-temp">${cmpVal(city1.data, 'temperature_2m')}${unitSymbol}</div>
+            <div class="compare-desc">${wmoInfo(city1.data.current.weather_code).desc}</div>
+            <div class="compare-row"><span>💧 Feuchtigkeit</span><span>${city1.data.current.relative_humidity_2m}%</span></div>
+            <div class="compare-row"><span>💨 Wind</span><span>${Math.round(city1.data.current.wind_speed_10m)} km/h</span></div>
+            <div class="compare-row"><span>🌡️ Gefühlt</span><span>${cmpVal(city1.data, 'apparent_temperature')}${unitSymbol}</span></div>
+            <div class="compare-row"><span>🌧️ Regen heute</span>${pp1 !== null ? precipBar(pp1) : '<span>–</span>'}</div>
+        </div>
+        <div class="compare-divider"><span>VS</span></div>
+        <div class="compare-city-card">
+            <div class="compare-city-name">${city2.name}</div>
+            <div class="compare-icon">${getWeatherIconSVG(wmoInfo(city2.data.current.weather_code).type)}</div>
+            <div class="compare-temp">${cmpVal(city2.data, 'temperature_2m')}${unitSymbol}</div>
+            <div class="compare-desc">${wmoInfo(city2.data.current.weather_code).desc}</div>
+            <div class="compare-row"><span>💧 Feuchtigkeit</span><span>${city2.data.current.relative_humidity_2m}%</span></div>
+            <div class="compare-row"><span>💨 Wind</span><span>${Math.round(city2.data.current.wind_speed_10m)} km/h</span></div>
+            <div class="compare-row"><span>🌡️ Gefühlt</span><span>${cmpVal(city2.data, 'apparent_temperature')}${unitSymbol}</span></div>
+            <div class="compare-row"><span>🌧️ Regen heute</span>${pp2 !== null ? precipBar(pp2) : '<span>–</span>'}</div>
+        </div>
+    </div>`;
+    elements.compareResult.innerHTML = html;
+    elements.compareResult.classList.remove('hidden');
 }
 
 // === API-Funktionen ===
@@ -249,12 +354,25 @@ async function reverseGeocode(lat, lon) {
     }
 }
 
+// V1.2: Rohe Wetterdaten für Vergleich (ohne UI-Update)
+async function fetchWeatherDataRaw(lat, lon) {
+    const url = `${WEATHER_URL}?latitude=${lat}&longitude=${lon}` +
+        `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m` +
+        `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
+        `&timezone=auto&forecast_days=2`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!data.current) throw new Error('Keine Wetterdaten verfügbar.');
+    return data;
+}
+
 async function fetchWeatherData(lat, lon) {
     try {
-        // V1.1: wind_direction_10m zu current hinzugefügt; sunrise & sunset zu daily hinzugefügt
+        // V1.2: hourly hinzugefügt (temperature_2m, precipitation_probability, weather_code)
         const url = `${WEATHER_URL}?latitude=${lat}&longitude=${lon}` +
             `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m` +
-            `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset` +
+            `&hourly=temperature_2m,precipitation_probability,weather_code` +
+            `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
             `&timezone=auto&forecast_days=6`;
         const response = await fetch(url);
         const data = await response.json();
@@ -262,6 +380,8 @@ async function fetchWeatherData(lat, lon) {
         currentWeatherData = data;
         displayCurrentWeather(data);
         displayForecast(data);
+        displayHourlyForecast(data);   // V1.2
+        displayTemperatureChart(data); // V1.2
         generateRecommendations(data);
         updateBackgroundTheme(data.current.weather_code);
         showLoading(false);
@@ -287,20 +407,25 @@ function displayCurrentWeather(data) {
     elements.weatherIcon.outerHTML = `<div id="weatherIcon" class="weather-icon" aria-label="${weatherInfo.desc}" role="img">${iconSVG}</div>`;
     elements.weatherIcon = document.getElementById('weatherIcon');
 
-    elements.temperature.textContent       = `${Math.round(current.temperature_2m)}${unitSymbol}`;
+    let displayTemp = Math.round(current.temperature_2m);
+    let displayFeels = Math.round(current.apparent_temperature);
+    if (currentUnit === 'fahrenheit') {
+        displayTemp = Math.round(displayTemp * 9/5 + 32);
+        displayFeels = Math.round(displayFeels * 9/5 + 32);
+    }
+
+    elements.temperature.textContent       = `${displayTemp}${unitSymbol}`;
     elements.weatherDescription.textContent = weatherInfo.desc;
     elements.humidity.textContent          = `${current.relative_humidity_2m}%`;
 
-    // Wind: Geschwindigkeit + Richtung (V1.1)
     const windDir = degreesToCompass(current.wind_direction_10m);
     elements.wind.textContent          = `${Math.round(current.wind_speed_10m)} km/h`;
     if (elements.windDirection) {
         elements.windDirection.textContent = windDir;
     }
 
-    elements.feelsLike.textContent = `${Math.round(current.apparent_temperature)}${unitSymbol}`;
+    elements.feelsLike.textContent = `${displayFeels}${unitSymbol}`;
 
-    // Sonnenaufgang & Sonnenuntergang für heute (Index 0) (V1.1)
     if (elements.sunrise && daily && daily.sunrise) {
         elements.sunrise.textContent = formatTime(daily.sunrise[0]);
     }
@@ -309,6 +434,179 @@ function displayCurrentWeather(data) {
     }
 }
 
+// V1.2: Stundenweise Vorhersage (alle 3 Stunden, nur heute)
+function displayHourlyForecast(data) {
+    if (!data.hourly || !elements.hourlyList) return;
+    elements.hourlyList.innerHTML = '';
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const unitSymbol = currentUnit === 'celsius' ? '°C' : '°F';
+
+    const times = data.hourly.time;
+    const temps = data.hourly.temperature_2m;
+    const probs = data.hourly.precipitation_probability;
+    const codes = data.hourly.weather_code;
+
+    let count = 0;
+    for (let i = 0; i < times.length; i++) {
+        const t = times[i]; // "2024-04-08T14:00"
+        if (!t.startsWith(todayStr)) continue;
+        const hour = parseInt(t.slice(11, 13));
+        if (hour % 3 !== 0) continue; // nur alle 3 Stunden
+
+        let temp = Math.round(temps[i]);
+        if (currentUnit === 'fahrenheit') temp = Math.round(temp * 9/5 + 32);
+
+        const prob = probs ? probs[i] : null;
+        const wInfo = WMO_CODES[codes[i]] || { type: 'default', desc: '' };
+        const isPast = new Date(t) < now;
+
+        const card = document.createElement('div');
+        card.className = `hourly-card${isPast ? ' hourly-past' : ''}`;
+        card.innerHTML = `
+            <div class="hourly-time">${hour.toString().padStart(2,'0')}:00</div>
+            <div class="hourly-icon">${getWeatherIconSVG(wInfo.type)}</div>
+            <div class="hourly-temp">${temp}${unitSymbol}</div>
+            ${prob !== null ? `<div class="hourly-precip">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#42a5f5"><path d="M12 2C7 8 4 12 4 16a8 8 0 0016 0c0-4-3-8-8-14z"/></svg>
+                ${prob}%
+            </div>` : ''}
+        `;
+        elements.hourlyList.appendChild(card);
+        count++;
+        if (count >= 9) break; // max 9 Slots (27h)
+    }
+}
+
+// V1.2: Temperaturverlauf als Chart.js Liniengraph (5 Tage, Max + Min)
+function displayTemperatureChart(data) {
+    const daily = data.daily;
+    if (!daily) return;
+
+    const unitSymbol = currentUnit === 'celsius' ? '°C' : '°F';
+    function toUnit(v) { return currentUnit === 'fahrenheit' ? Math.round(v * 9/5 + 32) : Math.round(v); }
+
+    const labels = daily.time.slice(1, 6).map(d => formatDay(d));
+    const maxTemps = daily.temperature_2m_max.slice(1, 6).map(toUnit);
+    const minTemps = daily.temperature_2m_min.slice(1, 6).map(toUnit);
+    const precipProbs = daily.precipitation_probability_max
+        ? daily.precipitation_probability_max.slice(1, 6)
+        : [];
+
+    const canvas = document.getElementById('tempChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    if (tempChartInstance) {
+        tempChartInstance.destroy();
+        tempChartInstance = null;
+    }
+
+    const datasets = [
+        {
+            label: `Max (${unitSymbol})`,
+            data: maxTemps,
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249,115,22,0.12)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            pointBackgroundColor: '#f97316',
+            borderWidth: 2.5,
+            yAxisID: 'y'
+        },
+        {
+            label: `Min (${unitSymbol})`,
+            data: minTemps,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.08)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            pointBackgroundColor: '#3b82f6',
+            borderWidth: 2.5,
+            yAxisID: 'y'
+        }
+    ];
+
+    if (precipProbs.length > 0) {
+        datasets.push({
+            label: 'Regen (%)',
+            data: precipProbs,
+            borderColor: '#06b6d4',
+            backgroundColor: 'rgba(6,182,212,0.10)',
+            fill: false,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#06b6d4',
+            borderWidth: 2,
+            borderDash: [5, 4],
+            yAxisID: 'y2'
+        });
+    }
+
+    tempChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: {
+                        color: '#0f172a',
+                        font: { family: 'Inter', size: 13 },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(255,255,255,0.92)',
+                    titleColor: '#0f172a',
+                    bodyColor: '#475569',
+                    borderColor: 'rgba(15,23,42,0.12)',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 12
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(15,23,42,0.06)' },
+                    ticks: { color: '#475569', font: { family: 'Inter', size: 13 } }
+                },
+                y: {
+                    position: 'left',
+                    grid: { color: 'rgba(15,23,42,0.06)' },
+                    ticks: {
+                        color: '#475569',
+                        font: { family: 'Inter', size: 13 },
+                        callback: v => `${v}${unitSymbol}`
+                    }
+                },
+                y2: {
+                    position: 'right',
+                    min: 0,
+                    max: 100,
+                    grid: { drawOnChartArea: false },
+                    ticks: {
+                        color: '#06b6d4',
+                        font: { family: 'Inter', size: 12 },
+                        callback: v => `${v}%`
+                    }
+                }
+            }
+        }
+    });
+}
+
+// V1.2: Niederschlagswahrscheinlichkeit in Forecast-Karten
 function displayForecast(data) {
     elements.forecastList.innerHTML = '';
     const daily = data.daily;
@@ -318,23 +616,44 @@ function displayForecast(data) {
 
     for (let i = 1; i < Math.min(6, daily.time.length); i++) {
         const dateStr    = daily.time[i];
-        const maxTemp    = daily.temperature_2m_max[i];
-        const minTemp    = daily.temperature_2m_min[i];   // V1.1: Min-Temperatur
+        let maxTemp    = daily.temperature_2m_max[i];
+        let minTemp    = daily.temperature_2m_min[i];
+        if (currentUnit === 'fahrenheit') {
+            maxTemp = Math.round(maxTemp * 9/5 + 32);
+            minTemp = Math.round(minTemp * 9/5 + 32);
+        } else {
+            maxTemp = Math.round(maxTemp);
+            minTemp = Math.round(minTemp);
+        }
         const weatherCode = daily.weather_code[i];
         const weatherInfo = WMO_CODES[weatherCode] || { type: 'default', desc: 'Unbekannt' };
         const iconSVG    = getWeatherIconSVG(weatherInfo.type);
 
+        // V1.2: Niederschlagswahrscheinlichkeit
+        const precip = daily.precipitation_probability_max
+            ? daily.precipitation_probability_max[i]
+            : null;
+
+        const precipHTML = precip !== null
+            ? `<div class="forecast-precip">
+                    <div class="precip-bar-bg">
+                        <div class="precip-bar-fill" style="width:${Math.min(100,precip)}%;background:${precip>70?'#2563eb':precip>40?'#60a5fa':'#bfdbfe'}"></div>
+                    </div>
+                    <span class="precip-label">${precip}%</span>
+               </div>`
+            : '';
+
         const card = document.createElement('div');
         card.className = 'forecast-card';
-        // V1.1: Min/Max statt nur Max anzeigen
         card.innerHTML = `
             <div class="day">${formatDay(dateStr)}</div>
             <div class="forecast-icon" aria-label="${weatherInfo.desc}" role="img">${iconSVG}</div>
             <div class="forecast-temp">
-                <span class="temp-max">${Math.round(maxTemp)}${unitSymbol}</span>
-                <span class="temp-min">${Math.round(minTemp)}${unitSymbol}</span>
+                <span class="temp-max">${maxTemp}${unitSymbol}</span>
+                <span class="temp-min">${minTemp}${unitSymbol}</span>
             </div>
             <div class="forecast-desc">${weatherInfo.desc}</div>
+            ${precipHTML}
         `;
         elements.forecastList.appendChild(card);
     }
@@ -425,7 +744,7 @@ function updateBackgroundTheme(weatherCode) {
 (function injectIconStyles() {
     const style = document.createElement('style');
     style.textContent = `
-        .weather-icon svg, .forecast-icon svg {
+        .weather-icon svg, .forecast-icon svg, .hourly-icon svg, .compare-icon svg {
             width: 100%;
             height: 100%;
         }
@@ -444,20 +763,33 @@ function updateBackgroundTheme(weatherCode) {
             justify-content: center;
             margin: 0 auto;
         }
-        /* V1.1: Min/Max Temperaturen in Vorhersage */
         .forecast-temp {
             display: flex;
             gap: 6px;
             justify-content: center;
             align-items: baseline;
         }
-        .temp-max {
-            font-weight: 700;
-            font-size: 1em;
+        .temp-max { font-weight: 700; font-size: 1em; }
+        .temp-min { font-size: 0.82em; opacity: 0.6; }
+
+        /* V1.2 Hourly */
+        .hourly-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 4px;
         }
-        .temp-min {
-            font-size: 0.82em;
-            opacity: 0.6;
+
+        /* V1.2 Compare icon */
+        .compare-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
         }
     `;
     document.head.appendChild(style);
