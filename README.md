@@ -2,18 +2,6 @@
 
 Eine moderne Web-App, die aktuelle Wetterdaten anzeigt und persönliche Tagesempfehlungen gibt.
 
-## Projektstruktur
-
-```
-wetter-app/
-├── index.html          # Haupt-HTML-Datei
-├── css/
-│   └── style.css       # Stylesheet mit responsivem Design
-├── js/
-│   └── app.js          # JavaScript-Logik und API-Integration
-└── README.md           # Diese Anleitung
-```
-
 ## Vorteile der Open-Meteo API
 
 - **Kein API-Key erforderlich** – sofort einsatzbereit!
@@ -21,29 +9,6 @@ wetter-app/
 - **HTTPS standardmäßig** – sicherere Verbindung
 - **Keine monatlichen Limits** – keine Sorge um API-Kontingente
 - **Hohe Verfügbarkeit** – zuverlässige öffentliche API
-
-## Projekt starten
-
-### Option A: Direkt im Browser
-Öffne `index.html` per Doppelklick im Browser.
-
-### Option B: Mit VS Code Live Server
-1. Installiere die Erweiterung "Live Server" in VS Code
-2. Öffne den Projektordner in VS Code
-3. Rechtsklick auf `index.html` → "Open with Live Server"
-
-### Option C: Mit Python
-```bash
-cd wetter-app
-python -m http.server 8000
-# Dann öffne: http://localhost:8000
-```
-
-### Option D: Mit Node.js
-```bash
-npx http-server wetter-app -p 8000
-# Dann öffne: http://localhost:8000
-```
 
 ## Verwendete Open-Meteo API-Endpunkte
 
