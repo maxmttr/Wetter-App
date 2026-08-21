@@ -1,123 +1,104 @@
-# Wetter & Tagesplan App
+# Wetter & Tagesplan
 
-Eine moderne Web-App, die aktuelle Wetterdaten anzeigt und persönliche Tagesempfehlungen gibt.
+Eine Wetter-App mit personalisierter Tagesplanung, basierend auf der kostenlosen [Open-Meteo](https://open-meteo.com/) API. Kein API-Key nötig.
+
+**Live-Version:** https://wetter-app-alpha.vercel.app/
+
+## Funktionen
+
+- Stadtsuche mit Autocomplete (Land/Region werden angezeigt)
+- Automatische Standorterkennung
+- °C/°F-Umschaltung
+- 5-Tage-Vorhersage inkl. Niederschlagswahrscheinlichkeit
+- Stundenprognose (alle 3h für den aktuellen Tag)
+- Temperaturdiagramm (Chart.js)
+- Vergleich zweier Städte nebeneinander
+- Wetterabhängige Tagesempfehlungen (Regenschirm, Sonnencreme, Fahrradwetter, ...)
+- Favoriten & zuletzt gesuchte Städte (lokal im Browser gespeichert)
+- Wetterdaten-Cache mit 10 Minuten Ablaufzeit — spart unnötige API-Aufrufe
+- Wiederherstellung der zuletzt gewählten Stadt beim erneuten Öffnen
+- Klare Lade-, Leer- und Fehlerzustände inkl. Korrekturvorschlägen bei Tippfehlern
+- Zeitstempel „Aktualisiert vor X Minuten“
+- Vollständig responsive und mit Tastatur bedienbar
+
+## Tech-Stack
+
+Reines HTML/CSS/JavaScript (Vanilla, kein Framework, kein Build-Schritt nötig für den Betrieb).
+
+- **Frontend:** HTML5, CSS3, JavaScript (ES6+)
+- **Diagramme:** [Chart.js](https://www.chartjs.org/) (via CDN)
+- **Wetterdaten:** [Open-Meteo Geocoding-](https://open-meteo.com/en/docs/geocoding-api) und [Forecast-API](https://open-meteo.com/en/docs)
+- **Hosting:** Vercel (Static Site)
+- **Tests:** Vitest + jsdom
+- **Code-Qualität:** ESLint, Prettier
+- **CI:** GitHub Actions (Lint, Tests, Build-Check bei jedem Pull Request)
 
 ## Projektstruktur
 
 ```
-wetter-app/
-├── index.html          # Haupt-HTML-Datei
-├── css/
-│   └── style.css       # Stylesheet mit responsivem Design
+├── index.html
+├── css/style.css
 ├── js/
-│   └── app.js          # JavaScript-Logik und API-Integration
-└── README.md           # Diese Anleitung
+│   ├── app.js
+│   ├── storage.js
+│   └── autocomplete.js
+├── tests/
+│   ├── app.test.js
+│   ├── storage.test.js
+│   └── setup.js
+├── .github/workflows/ci.yml
+├── eslint.config.js
+├── .prettierrc.json
+└── vitest.config.js
 ```
 
-## Vorteile der Open-Meteo API
+## Installation & lokale Entwicklung
 
-- **Kein API-Key erforderlich** – sofort einsatzbereit!
-- **Vollständig kostenlos** – bis zu 10.000 Anfragen pro Tag
-- **HTTPS standardmäßig** – sicherere Verbindung
-- **Keine monatlichen Limits** – keine Sorge um API-Kontingente
-- **Hohe Verfügbarkeit** – zuverlässige öffentliche API
+Voraussetzung: Node.js ≥ 18 (nur für Tests/Linting, nicht für den Betrieb selbst).
 
-## Projekt starten
-
-### Option A: Direkt im Browser
-Öffne `index.html` per Doppelklick im Browser.
-
-### Option B: Mit VS Code Live Server
-1. Installiere die Erweiterung "Live Server" in VS Code
-2. Öffne den Projektordner in VS Code
-3. Rechtsklick auf `index.html` → "Open with Live Server"
-
-### Option C: Mit Python
 ```bash
-cd wetter-app
-python -m http.server 8000
-# Dann öffne: http://localhost:8000
+git clone https://github.com/maxmttr/Wetter-App.git
+cd Wetter-App
+npm install
 ```
 
-### Option D: Mit Node.js
+### App lokal öffnen
+
 ```bash
-npx http-server wetter-app -p 8000
-# Dann öffne: http://localhost:8000
+python3 -m http.server 8000
+# oder
+npx serve .
 ```
 
-## Verwendete Open-Meteo API-Endpunkte
+### Tests ausführen
 
-| API | Beschreibung | URL |
-|-----|--------------|-----|
-| Geocoding | Stadtname → Koordinaten | `https://geocoding-api.open-meteo.com/v1/search` |
-| Forecast | Wetterdaten + Vorhersage | `https://api.open-meteo.com/v1/forecast` |
-
-### Beispiel-Requests
-
-**Geocoding (Stadt suchen):**
-```
-GET https://geocoding-api.open-meteo.com/v1/search?name=Berlin&count=1&language=de&format=json
+```bash
+npm test
+npm run test:watch
 ```
 
-**Wetterdaten:**
+### Linting & Formatierung
+
+```bash
+npm run lint
+npm run lint:fix
+npm run format
+npm run format:check
 ```
-GET https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=6
-```
 
-### Verfügbare Wettervariablen
+## Deployment (Vercel)
 
-| Variable | Beschreibung |
-|----------|--------------|
-| `temperature_2m` | Aktuelle Temperatur |
-| `relative_humidity_2m` | Luftfeuchtigkeit (%) |
-| `apparent_temperature` | Gefühlte Temperatur |
-| `weather_code` | WMO Wettercode |
-| `wind_speed_10m` | Windgeschwindigkeit (km/h) |
-| `temperature_2m_max` | Tageshöchsttemperatur |
-| `temperature_2m_min` | Tagestiefsttemperatur |
+1. Änderungen über einen Feature-Branch und Pull Request einbringen.
+2. GitHub Actions führt automatisch Lint, Tests und Build-Check aus.
+3. Nach Review und Merge deployt Vercel automatisch — keine Umgebungsvariablen nötig.
+4. Produktionsänderungen niemals direkt auf dem produktiv verbundenen Branch, sondern immer per Pull Request.
 
-## Features
+## Umgebungsvariablen / API-Keys
 
-- **Stadtsuche:** Wetter für jede Stadt weltweit abrufen
-- **Mein Standort:** Automatische Standort-Erkennung per Geolocation
-- **Temperatureinheiten:** Umschaltung zwischen °C und °F
-- **5-Tage-Vorhersage:** Übersicht der kommenden Tage
-- **Tagesempfehlungen:** Personalisierte Tipps basierend auf Wetterdaten
-- **Wetter-Icons:** Passende Icons für jede Wetterlage
-- **Farb-Theme:** Hintergrund ändert sich je nach Wetterlage
-- **Responsives Design:** Optimiert für Desktop und Mobile
+Keine nötig. Open-Meteo ist kostenlos und ohne Authentifizierung nutzbar.
 
-## WMO Wettercodes
+## Bekannte Einschränkungen
 
-Die App verwendet WMO (World Meteorological Organization) Wettercodes:
-
-| Code | Bedeutung |
-|------|-----------|
-| 0-3  | Klar bis bewölkt |
-| 45-48| Nebel |
-| 51-57| Nieselregen |
-| 61-67| Regen |
-| 71-77| Schneefall |
-| 80-82| Regenschauer |
-| 85-86| Schneeschauer |
-| 95-99| Gewitter |
-
-## Fehlerbehandlung
-
-Die App fängt folgende Fehler ab:
-- Leere Eingabe → "Bitte gib eine Stadt ein"
-- Stadt nicht gefunden → "Stadt nicht gefunden..."
-- Keine Wetterdaten → "Keine Wetterdaten verfügbar"
-- Geolocation verweigert → "Standort-Zugriff wurde verweigert"
-
-## Browser-Kompatibilität
-
-- Chrome (empfohlen)
-- Firefox
-- Safari
-- Edge
-- Mobile Browser (iOS Safari, Chrome Mobile)
-
-## Lizenz
-
-Dieses Projekt steht unter der MIT-Lizenz. Wetterdaten von [Open-Meteo](https://open-meteo.com/) (CC BY 4.0).
+- Reverse-Geocoding zeigt aktuell nur Koordinaten, da Open-Meteo kein dediziertes Reverse-Geocoding anbietet.
+- Der Cache liegt im LocalStorage und wird nicht zwischen Geräten synchronisiert.
+- Chart.js wird per CDN geladen; bei geblockten externen Skripten wird nur das Diagramm ausgelassen.
