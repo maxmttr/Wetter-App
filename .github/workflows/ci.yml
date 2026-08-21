@@ -15,7 +15,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install --legacy-peer-deps
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund || (echo "NPM INSTALL FAILED - dumping debug log" && cat /home/runner/.npm/_logs/*-debug-0.log 2>/dev/null || true; exit 1)
       - run: npm run lint
       - run: npm run format:check
 
@@ -27,7 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install --legacy-peer-deps
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund || (echo "NPM INSTALL FAILED - dumping debug log" && cat /home/runner/.npm/_logs/*-debug-0.log 2>/dev/null || true; exit 1)
       - run: npm test
 
   build-check:
