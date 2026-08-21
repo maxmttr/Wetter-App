@@ -9,7 +9,16 @@ export default [
         localStorage: 'readonly', fetch: 'readonly', AbortController: 'readonly',
         Chart: 'readonly', console: 'readonly', setTimeout: 'readonly',
         clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
-        module: 'readonly'
+        module: 'readonly',
+        // storage.js globals (loaded before app.js in index.html)
+        getFavorites: 'readonly', isFavorite: 'readonly', addFavorite: 'readonly',
+        removeFavorite: 'readonly', toggleFavorite: 'readonly',
+        getRecentCities: 'readonly', addRecentCity: 'readonly', clearRecentCities: 'readonly',
+        getLastCity: 'readonly', setLastCity: 'readonly',
+        getCachedWeather: 'readonly', setCachedWeather: 'readonly', invalidateCachedWeather: 'readonly',
+        cityKey: 'readonly', formatRelativeTime: 'readonly',
+        // autocomplete.js globals
+        CityAutocomplete: 'readonly'
       }
     },
     rules: {
