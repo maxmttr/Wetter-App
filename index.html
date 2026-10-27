@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wetter & Tagesplan App</title>
+    <meta name="description" content="Wetter & Tagesplan – Wettervorhersage, Stadtvergleich und personalisierte Tagesempfehlungen auf Basis von Open-Meteo.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <!-- V1.2: Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
 </head>
 <body>
@@ -31,25 +31,41 @@
 
             <section class="control-bar glass-panel" aria-label="Wettersuche">
                 <div class="search-box">
-                    <label for="cityInput" class="sr-only">Stadt eingeben</label>
-                    <input type="text" id="cityInput" placeholder="Stadt eingeben..." autocomplete="off">
+                    <div class="search-input-wrap">
+                        <label for="cityInput" class="sr-only">Stadt eingeben</label>
+                        <input type="text" id="cityInput" placeholder="Stadt eingeben..." autocomplete="off"
+                               role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="autocompleteList">
+                        <ul id="autocompleteList" class="autocomplete-list hidden" role="listbox" aria-label="Stadtvorschläge"></ul>
+                    </div>
                     <button id="searchBtn" class="btn btn-primary">Wetter abrufen</button>
+                    <button id="favoriteBtn" class="btn btn-ghost icon-btn" title="Zu Favoriten hinzufügen" aria-label="Zu Favoriten hinzufügen" aria-pressed="false">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-6.7-4.35-9.3-8.2C1 10 1.7 6.3 5 4.9c2-.85 4 .05 5 1.8 1-1.75 3-2.65 5-1.8 3.3 1.4 4 5.1 2.3 7.9C18.7 16.65 12 21 12 21z"/></svg>
+                    </button>
                     <button id="locationBtn" class="btn btn-ghost icon-btn" title="Meinen Standort verwenden" aria-label="Meinen Standort verwenden">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
                     </button>
-                    <!-- V1.2: Vergleichs-Button -->
                     <button id="compareBtn" class="btn btn-ghost" title="Zwei Städte vergleichen" aria-label="Städte vergleichen">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
                         Vergleichen
                     </button>
                 </div>
                 <div class="unit-toggle" aria-label="Temperatureinheit">
-                    <button id="celsiusBtn" class="unit-btn active">°C</button>
-                    <button id="fahrenheitBtn" class="unit-btn">°F</button>
+                    <button id="celsiusBtn" class="unit-btn active" aria-pressed="true">°C</button>
+                    <button id="fahrenheitBtn" class="unit-btn" aria-pressed="false">°F</button>
                 </div>
             </section>
 
-            <!-- V1.2: Städte-Vergleich Panel -->
+            <section class="quick-access glass-panel" aria-label="Favoriten und zuletzt gesuchte Städte">
+                <div class="quick-access-group">
+                    <span class="panel-label">Favoriten</span>
+                    <ul id="favoritesList" class="chip-list"></ul>
+                </div>
+                <div class="quick-access-group">
+                    <span class="panel-label">Zuletzt gesucht</span>
+                    <ul id="recentList" class="chip-list"></ul>
+                </div>
+            </section>
+
             <section id="compareSection" class="compare-panel glass-panel hidden" aria-label="Städtevergleich">
                 <div class="compare-header">
                     <span class="panel-label">Städte-Vergleich</span>
@@ -62,21 +78,38 @@
                 <div id="compareResult"></div>
             </section>
 
-            <div id="loading" class="loading glass-panel hidden">
+            <div id="emptyState" class="empty-state glass-panel hidden">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>
+                </svg>
+                <h2>Noch kein Wetter geladen</h2>
+                <p>Suche oben nach einer Stadt oder nutze deinen Standort, um mit deinem Tagesplan zu starten.</p>
+            </div>
+
+            <div id="skeleton" class="skeleton-wrap hidden" aria-hidden="true">
+                <div class="skeleton-block skeleton-main"></div>
+                <div class="skeleton-block skeleton-side"></div>
+            </div>
+
+            <div id="loading" class="loading glass-panel hidden" role="status" aria-live="polite">
                 <div class="spinner"></div>
                 <p>Wetterdaten werden geladen...</p>
             </div>
 
             <div id="errorMessage" class="error-message hidden" role="alert">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                <span id="errorText">Fehler aufgetreten</span>
+                <div class="error-copy">
+                    <span id="errorText">Fehler aufgetreten</span>
+                    <span id="errorSuggestion" class="error-suggestion hidden"></span>
+                </div>
             </div>
 
             <section id="weatherSection" class="weather-section hidden">
+                <p id="updatedAt" class="updated-at" role="status" aria-live="polite"></p>
                 <div class="weather-overview">
                     <article class="current-weather glass-panel">
                         <div class="weather-copy">
-                            <span class="panel-label">Aktuelles Wetter</span>
+                            <span class="panel-label">Aktuelles Wetter <span class="live-tag">Live</span></span>
                             <div class="weather-main">
                                 <div class="weather-visual">
                                     <div class="icon-wrap">
@@ -116,7 +149,6 @@
                                 </div>
                                 <div><span class="label">Gefühlt</span><span id="feelsLike" class="value">--°</span></div>
                             </div>
-                            <!-- Sonnenaufgang (V1.1) -->
                             <div class="detail-item">
                                 <div class="detail-icon">
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -126,7 +158,6 @@
                                 </div>
                                 <div><span class="label">Sonnenaufgang</span><span id="sunrise" class="value">--:--</span></div>
                             </div>
-                            <!-- Sonnenuntergang (V1.1) -->
                             <div class="detail-item">
                                 <div class="detail-icon">
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -148,27 +179,25 @@
                         <div class="mini-card glass-panel">
                             <span class="panel-label">Tipp</span>
                             <h3>Schneller Zugriff</h3>
-                            <p>Suche nach einer Stadt oder verwende deinen Standort für lokale Daten in Sekunden.</p>
+                            <p>Speichere Favoriten oder wähle eine zuletzt gesuchte Stadt für sofortige Ergebnisse ohne neue Anfrage.</p>
                         </div>
                     </aside>
                 </div>
 
-                <!-- V1.2: Stündliche Vorhersage -->
                 <article class="hourly-panel glass-panel">
                     <div class="section-heading">
                         <div>
-                            <span class="panel-label">Heute stündlich</span>
+                            <span class="panel-label">Heute stündlich <span class="forecast-tag inline">Prognose</span></span>
                             <h3>Stundenweise Vorhersage</h3>
                         </div>
                     </div>
                     <div id="hourlyList" class="hourly-list"></div>
                 </article>
 
-                <!-- V1.2: Temperaturchart -->
                 <article class="chart-panel glass-panel">
                     <div class="section-heading">
                         <div>
-                            <span class="panel-label">5-Tage-Verlauf</span>
+                            <span class="panel-label">5-Tage-Verlauf <span class="forecast-tag inline">Prognose</span></span>
                             <h3>Temperaturverlauf</h3>
                         </div>
                     </div>
@@ -200,6 +229,8 @@
         </footer>
     </div>
 
+    <script src="js/storage.js"></script>
+    <script src="js/autocomplete.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
